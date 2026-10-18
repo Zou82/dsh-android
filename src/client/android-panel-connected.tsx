@@ -92,6 +92,8 @@ export interface AndroidPanelProps {
   colorScheme: 'light' | 'dark'
   locale: AndroidLocale
   onClose?: () => void
+  /** Folds the panel surface down to its rail; absent hides the control. */
+  onCollapse?: () => void
   /** Controlled size mode (the panel host owns it via the panel store). */
   sizeMode?: AndroidPanelSizeMode
   /** Controlled size-mode change (absent → internal state, fit default). */
@@ -115,6 +117,7 @@ export function AndroidPanel({
   colorScheme,
   locale,
   onClose,
+  onCollapse,
   sizeMode,
   onSizeModeChange,
   frameStyle,
@@ -430,6 +433,7 @@ export function AndroidPanel({
       colorScheme={colorScheme}
       locale={locale}
       {...(onClose === undefined ? {} : { onClose })}
+      {...(onCollapse === undefined ? {} : { onCollapse })}
       sizeMode={activeSizeMode}
       {...(naturalWidth === undefined ? {} : { naturalWidth })}
       {...(naturalHeight === undefined ? {} : { naturalHeight })}

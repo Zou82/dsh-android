@@ -81,7 +81,7 @@ export const PANEL_STYLES: Record<string, CSSProperties> = {
     rowGap: 6,
     minWidth: 0,
     flex: 'none',
-    padding: '10px 40px 10px 12px',
+    padding: '10px 12px',
     borderBottom: '1px solid var(--dsw-alias-border-l2)',
   },
   titleCluster: {
@@ -160,10 +160,15 @@ export const PANEL_STYLES: Record<string, CSSProperties> = {
     color: 'var(--dsw-alias-label-primary)',
     fontWeight: 600,
   },
-  closeButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
+  /**
+   * The header's own control chrome. Kept INSIDE the header's flex flow on
+   * purpose: the docked surface starts at the window's top edge, so an
+   * absolutely positioned control at `right: 8` sits underneath the desktop
+   * window's own minimize/maximize/close buttons and is invisible there
+   * (issue #17 reported "no way to close the sidebar" for exactly that
+   * reason). `headerActionLabel` widens one of these for a text label.
+   */
+  headerAction: {
     flex: 'none',
     width: 26,
     height: 26,
@@ -178,6 +183,11 @@ export const PANEL_STYLES: Record<string, CSSProperties> = {
     font: 'inherit',
     lineHeight: 0,
     padding: 0,
+  },
+  headerActionLabel: {
+    width: 'auto',
+    padding: '0 8px',
+    gap: 4,
   },
   stage: {
     flex: 1,
@@ -378,6 +388,8 @@ export interface AndroidPanelBodyProps {
   colorScheme: 'light' | 'dark'
   locale: AndroidLocale
   onClose?: () => void
+  /** Folds the surface down to its right-edge rail; absent hides the control. */
+  onCollapse?: () => void
   children: ReactNode
   /** Active display size mode (defaults to fit). */
   sizeMode?: AndroidPanelSizeMode
@@ -412,6 +424,7 @@ export function AndroidPanelBody({
   colorScheme,
   locale,
   onClose,
+  onCollapse,
   children,
   followIndicator,
   sizeMode = ANDROID_PANEL_SIZE_MODE_FIT,
@@ -495,12 +508,41 @@ export function AndroidPanelBody({
             )
           })}
         </div>
+        {onCollapse !== undefined ? (
+          <button
+            type="button"
+            style={{ ...PANEL_STYLES.headerAction, ...PANEL_STYLES.headerActionLabel }}
+            onClick={onCollapse}
+            aria-label={copy.collapsePanel}
+            title={copy.collapsePanel}
+            data-android-panel-collapse="true"
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              aria-hidden="true"
+              data-android-panel-collapse-icon="true"
+              style={{ display: 'block' }}
+            >
+              <path d="M6 3 L11 8 L6 13" />
+            </svg>
+            <span style={{ fontSize: 12, lineHeight: 1 }} data-android-panel-collapse-label="true">
+              {copy.collapseAction}
+            </span>
+          </button>
+        ) : null}
         {onClose !== undefined ? (
           <button
             type="button"
-            style={PANEL_STYLES.closeButton}
+            style={PANEL_STYLES.headerAction}
             onClick={onClose}
             aria-label={copy.closePanel}
+            title={copy.closePanel}
             data-android-panel-close="true"
           >
             {/* An inline SVG rather than the × glyph: the character's optical

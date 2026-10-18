@@ -419,7 +419,39 @@ const surfaceStyles: Record<string, CSSProperties> = {
     background: 'var(--dsw-alias-bg-base)',
     boxShadow: '0 24px 80px rgba(0,0,0,0.45)',
   },
+  /**
+   * The whole folded strip is one hit target that reopens the panel.
+   */
+  collapsedRail: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 12,
+    padding: '14px 0',
+    background: 'transparent',
+    border: 'none',
+    color: 'var(--dsw-alias-label-primary)',
+    cursor: 'pointer',
+    font: 'inherit',
+  },
+  collapsedRailLabel: {
+    writingMode: 'vertical-rl',
+    textOrientation: 'mixed',
+    fontSize: 11,
+    letterSpacing: '0.08em',
+    opacity: 0.72,
+    userSelect: 'none',
+    whiteSpace: 'nowrap',
+  },
 }
+
+/**
+ * Width of the rail the docked surface folds down to. Collapsing RELEASES the
+ * dock lease, so the conversation regains the full viewport width and only
+ * this strip stays pinned to the right edge.
+ */
+const ANDROID_PANEL_COLLAPSED_WIDTH = 40
 
 interface AndroidPanelSurfaceProps {
   request: AndroidPanelRequest
@@ -464,6 +496,12 @@ function AndroidPanelSurface({
   const fullscreen = viewportWidth < ANDROID_PANEL_FULLSCREEN_BREAKPOINT || dockUnavailable
   const bounds = androidPanelWidthBounds(viewportWidth)
   const width = androidPanelEffectiveWidth(widthState, viewportWidth)
+  // Fold state is per open: closing and reopening the panel gives the full
+  // surface again, so a remembered collapse can never hide a fresh open.
+  const [collapsed, setCollapsed] = useState(false)
+  // The overlay variant already floats over the conversation, so folding it
+  // would only hide the controls; the rail exists for the docked column.
+  const panelCollapsed = collapsed && !fullscreen
 
   const handleDisplayChange = useCallback((display: AndroidPanelDisplayReport): void => {
     dispatchWidth({
@@ -495,7 +533,7 @@ function AndroidPanelSurface({
   }, [])
 
   useLayoutEffect(() => {
-    if (fullscreen) return
+    if (fullscreen || panelCollapsed) return
     const root = document.getElementById('root')
     if (root === null) {
       setDockUnavailable(true)
@@ -514,7 +552,7 @@ function AndroidPanelSurface({
       lease.release()
       setDockOffset(0)
     }
-  }, [dockOwnerId, fullscreen, width])
+  }, [dockOwnerId, fullscreen, panelCollapsed, width])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
@@ -593,6 +631,7 @@ function AndroidPanelSurface({
       colorScheme={colorScheme}
       locale={locale === 'zh' ? 'zh' : 'en'}
       onClose={onClose}
+      onCollapse={() => { setCollapsed(true) }}
       sizeMode={sizeMode}
       onSizeModeChange={onSizeModeChange}
       frameStyle={frameStyle}
@@ -616,6 +655,44 @@ function AndroidPanelSurface({
           {panel}
         </div>
       </div>
+    )
+  }
+
+  // The folded strip: one 40px column on the right edge. The dock lease is
+  // released while folded (see the layout effect), so the conversation gets the
+  // whole viewport back and only the rail overlays the edge.
+  if (panelCollapsed) {
+    return (
+      <section
+        style={{ ...surfaceStyles.surface, width: ANDROID_PANEL_COLLAPSED_WIDTH, right: 0 }}
+        data-android-panel-surface="collapsed"
+        role="complementary"
+        aria-label={copy.android}
+      >
+        <button
+          type="button"
+          style={surfaceStyles.collapsedRail}
+          onClick={() => { setCollapsed(false) }}
+          aria-label={copy.expandPanel}
+          title={copy.expandPanel}
+          data-android-panel-expand="true"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            aria-hidden="true"
+            style={{ display: 'block', flex: 'none' }}
+          >
+            <path d="M10 3 L5 8 L10 13" />
+          </svg>
+          <span style={surfaceStyles.collapsedRailLabel}>{copy.android}</span>
+        </button>
+      </section>
     )
   }
 

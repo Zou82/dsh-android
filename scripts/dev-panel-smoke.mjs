@@ -434,6 +434,7 @@ try {
     colorScheme: 'dark',
     locale: 'en',
     onClose: () => {},
+    onCollapse: () => {},
   }
   const streamPanel = render(client.AndroidPanel, panelProps)
   step(
@@ -464,6 +465,28 @@ try {
       && streamPanel.includes('data-android-panel-size-mode="true"')
       && streamPanel.includes('data-android-frame-style-control="true"'),
     'picker, follow, size and frame controls all present',
+  )
+  step(
+    'the header keeps close + collapse in the visible flow, never absolutely positioned',
+    streamPanel.includes('data-android-panel-close="true"')
+      && streamPanel.includes('data-android-panel-collapse="true"')
+      && streamPanel.includes('data-android-panel-collapse-label="true"')
+      // The docked surface starts at the window's top edge; an absolutely
+      // positioned header control would sit under the desktop window's own
+      // minimize/maximize/close buttons (issue #17).
+      && !/data-android-panel-(close|collapse)="true"[^>]*position:\s*absolute/.test(streamPanel),
+    'both header controls render inside the flex row',
+  )
+  const noCollapsePanel = render(client.AndroidPanel, {
+    ...panelProps,
+    onClose: undefined,
+    onCollapse: undefined,
+  })
+  step(
+    'a details-area render (no handlers) adds no header controls of its own',
+    !noCollapsePanel.includes('data-android-panel-close="true"')
+      && !noCollapsePanel.includes('data-android-panel-collapse="true"'),
+    'the native details column supplies its own chrome',
   )
   const screenshotPanel = render(client.AndroidPanel, {
     ...panelProps,
