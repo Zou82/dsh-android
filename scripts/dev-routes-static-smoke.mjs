@@ -288,6 +288,28 @@ step(
 // ── 3. the transport fence ──────────────────────────────────────────────────
 
 {
+  // A browser-shaped request: Fetch-Metadata present, Origin stripped. Nothing
+  // legitimate produces this, so the fence still refuses it.
+  const body = '{}'
+  const res = await request(route('status'), {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'content-length': String(body.length),
+      'sec-fetch-site': 'same-origin',
+    },
+    body,
+  })
+  step(
+    'a browser-shaped POST with no Origin is refused (403)',
+    res.status === 403 && res.json?.code === 'forbidden',
+    `${res.status} ${res.json?.code}`,
+  )
+}
+{
+  // The DSH desktop shell forwards the panel's requests through its host-side
+  // proxy, which deletes Origin/Cookie/Sec-Fetch-Site (issue #12). That hop is
+  // a loopback peer on a loopback Host, so it must be served.
   const body = '{}'
   const res = await request(route('status'), {
     method: 'POST',
@@ -295,9 +317,26 @@ step(
     body,
   })
   step(
-    'a POST with NO Origin is refused (403)',
-    res.status === 403 && res.json?.code === 'forbidden',
-    `${res.status} ${res.json?.code}`,
+    'a host-proxied POST with neither Origin nor Fetch-Metadata is served (200)',
+    res.status === 200 && res.json?.ok === true,
+    `${res.status} ${res.json?.ok}`,
+  )
+}
+{
+  const res = await postJson(route('status'), {}, { origin: 'dsh-app://app' })
+  step(
+    'the desktop shell origin (dsh-app://app) is served (200)',
+    res.status === 200 && res.json?.ok === true,
+    `${res.status} ${res.json?.ok}`,
+  )
+}
+{
+  // Only that exact origin — a lookalike custom scheme is still refused.
+  const res = await postJson(route('status'), {}, { origin: 'dsh-app://evil' })
+  step(
+    'a lookalike desktop shell origin is refused (403)',
+    res.status === 403,
+    String(res.status),
   )
 }
 {

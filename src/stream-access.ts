@@ -381,13 +381,39 @@ function isTrustedTransportRequest(req: IncomingMessage): boolean {
   return isLoopbackHostname(authority.hostname) || trustedEntriesForHost(authority, req.headers.host as string).length > 0
 }
 
+/**
+ * The DSH desktop shell serves this plugin's panel from Electron's custom
+ * `dsh-app://app` origin. Its own protocol handler forwards those requests to
+ * the webserver through the desktop host's `fetch` (`forwardWebRequest`), which
+ * deletes `Origin`, `Cookie` and `Sec-Fetch-Site` before the call — so a
+ * desktop request arrives as: loopback peer, loopback Host, and no browser
+ * metadata at all. A custom scheme can never satisfy the http(s) origin
+ * comparison below, which is why the desktop app answered every preview with
+ * 403 "requires a loopback trusted browser request" (issue #12).
+ */
+const DESKTOP_SHELL_ORIGIN = 'dsh-app://app'
+
 function isTrustedBrowserRequest(req: IncomingMessage, requireOrigin: boolean, entries: readonly MintedAuthority[] | undefined): boolean {
   if (req.headers['sec-fetch-site'] === 'cross-site') return false
   const origin = req.headers.origin
-  if (origin === undefined) return !requireOrigin
+  if (origin === undefined) {
+    // No Origin at all. Browsers always attach Fetch-Metadata to their
+    // requests, so a request carrying neither half is the desktop shell's
+    // host-side proxy (see DESKTOP_SHELL_ORIGIN). The transport fence above has
+    // already proved a loopback peer and a loopback authority, and Origin is
+    // CSRF shape here rather than caller identity — a browser cannot omit it
+    // for a cross-origin POST, and a local process that forges it can already
+    // name the loopback origin explicitly.
+    if (!requireOrigin) return true
+    return req.headers['sec-fetch-site'] === undefined
+  }
   if (typeof origin !== 'string') return false
   const authority = requestAuthority(req)
   if (authority === undefined) return false
+  // The desktop shell's own origin: same machine, same application, loopback
+  // peer. Accept that one exact origin instead of refusing every non-http(s)
+  // scheme, so a host that forwards Origin as-is keeps working.
+  if (origin === DESKTOP_SHELL_ORIGIN) return true
   try {
     const parsed = new URL(origin)
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false
